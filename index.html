@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Content Agent ✍️</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --accent:       #7c3aed;
+      --accent-dark:  #6d28d9;
+      --accent-soft:  #ede9fe;
+      --accent-mid:   #c4b5fd;
+      --green:        #059669;
+      --green-soft:   #d1fae5;
+      --red:          #dc2626;
+      --red-soft:     #fee2e2;
+      --text:         #111827;
+      --text-2:       #4b5563;
+      --text-3:       #9ca3af;
+      --border:       #e5e7eb;
+      --surface:      #f9fafb;
+      --white:        #ffffff;
+    }
+
+    html { height: 100%; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      background: var(--surface);
+      color: var(--text);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ─── Setup Overlay ──────────────────────────────────────────────── */
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(17, 24, 39, 0.75);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 300;
+      padding: 20px;
+    }
+
+    .setup-card {
+      background: var(--white);
+      border-radius: 22px;
+      padding: 34px 26px 28px;
+      width: 100%;
+      max-width: 390px;
+      box-shadow: 0 25px 60px -10px rgba(0,0,0,0.3);
+    }
+
+    .setup-icon { font-size: 40px; margin-bottom: 12px; }
+
+    .setup-card h2 {
+      font-size: 21px;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .setup-card p {
+      font-size: 14px;
+      color: var(--text-2);
+      line-height: 1.6;
+      margin-bottom: 22px;
+    }
+
+    .field {
+      width: 100%;
+      padding: 13px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      direction: ltr;
+      text-align: left;
+      margin-bottom: 12px;
+      outline: none;
+      color: var(--text);
+      background: var(--surface);
+      transition: border-color 0.2s, background 0.2s;
+      font-family: monospace;
+    }
+    .field:focus { border-color: var(--accent); background: var(--white); }
+    .field.error { border-color: var(--red); }
+
+    .btn-start {
+      width: 100%;
+      padding: 13px;
+      background: var(--accent);
+      color: var(--white);
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn-start:hover  { background: var(--accent-dark); }
+    .btn-start:active { transform: scale(0.98); }
+
+    /* ─── Header ─────────────────────────────────────────────────────── */
+
+    .header {
+      background: var(--white);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 16px 0;
+      flex-shrink: 0;
+    }
+
+    .header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .app-name { font-size: 16px; font-weight: 800; }
+    .app-sub  { font-size: 12px; color: var(--text-3); font-weight: 400; margin-right: 5px; }
+
+    .btn-reset {
+      font-size: 12px;
+      color: var(--text-2);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 12px;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 500;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .btn-reset:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* ─── Progress Bar ───────────────────────────────────────────────── */
+
+    .progress-wrap {
+      padding-bottom: 14px;
+      position: relative;
+    }
+
+    .progress-track {
+      position: absolute;
+      top: 10px;
+      right: 22px;
+      left: 22px;
+      height: 2px;
+      background: var(--border);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      position: absolute;
+      top: 0;
+      right: 0;
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      border-radius: 2px;
+      transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .progress-steps {
+      display: flex;
+      position: relative;
+      z-index: 1;
+    }
+
+    .p-step {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .p-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: var(--white);
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-3);
+      transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+      line-height: 1;
+    }
+    .p-dot.done   { background: var(--accent); border-color: var(--accent); color: var(--white); }
+    .p-dot.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--white);
+      box-shadow: 0 0 0 4px var(--accent-soft);
+    }
+
+    .p-label {
+      font-size: 10px;
+      color: var(--text-3);
+      text-align: center;
+      line-height: 1.25;
+      white-space: nowrap;
+      transition: color 0.3s;
+    }
+    .p-label.active { color: var(--accent); font-weight: 700; }
+
+    /* ─── Chat ───────────────────────────────────────────────────────── */
+
+    .chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      -webkit-overflow-scrolling: touch;
+      scroll-behavior: smooth;
+    }
+
+    .chat::-webkit-scrollbar { width: 4px; }
+    .chat::-webkit-scrollbar-track { background: transparent; }
+    .chat::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    /* Welcome */
+
+    .welcome-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      flex: 1;
+      gap: 14px;
+      padding: 40px 20px;
+      min-height: 200px;
+    }
+
+    .welcome-emoji { font-size: 52px; line-height: 1; }
+
+    .welcome-title {
+      font-size: 21px;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    .welcome-body {
+      font-size: 15px;
+      color: var(--text-2);
+      line-height: 1.7;
+      max-width: 290px;
+    }
+
+    .welcome-hint {
+      font-size: 13px;
+      color: var(--text-2);
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 11px 16px;
+      max-width: 290px;
+      line-height: 1.5;
+    }
+
+    /* Message rows */
+
+    .msg-row {
+      display: flex;
+      flex-direction: column;
+      max-width: 85%;
+    }
+
+    /* In RTL: flex-start = right, flex-end = left */
+    .msg-row.user      { align-self: flex-start; align-items: flex-start; }
+    .msg-row.assistant { align-self: flex-end;   align-items: flex-end;   max-width: 90%; }
+
+    .bubble {
+      padding: 11px 15px;
+      border-radius: 18px;
+      font-size: 14.5px;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .msg-row.user .bubble {
+      background: var(--accent);
+      color: var(--white);
+      border-end-start-radius: 5px; /* bottom-right flat in RTL — the "tail" */
+    }
+
+    .msg-row.assistant .bubble {
+      background: var(--white);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-end-end-radius: 5px; /* bottom-left flat in RTL — the "tail" */
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+
+    .msg-row.assistant .bubble.error {
+      background: var(--red-soft);
+      border-color: #fca5a5;
+      color: var(--red);
+    }
+
+    /* Copy button */
+
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 8px;
+      padding: 9px 16px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .copy-btn:hover  { background: #ddd6fe; }
+    .copy-btn:active { transform: scale(0.97); }
+    .copy-btn.done   { background: var(--green-soft); color: var(--green); }
+
+    /* Typing indicator */
+
+    .typing-row {
+      align-self: flex-end;
+    }
+
+    .typing-bubble {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      border-end-end-radius: 5px;
+      padding: 13px 17px;
+      display: inline-flex;
+      gap: 5px;
+      align-items: center;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+
+    .t-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--text-3);
+      border-radius: 50%;
+      animation: tdot 1.3s ease-in-out infinite;
+    }
+    .t-dot:nth-child(2) { animation-delay: 0.18s; }
+    .t-dot:nth-child(3) { animation-delay: 0.36s; }
+
+    @keyframes tdot {
+      0%, 60%, 100% { opacity: 0.35; transform: scale(1);   }
+      30%           { opacity: 1;    transform: scale(1.25); }
+    }
+
+    /* ─── Input Area ─────────────────────────────────────────────────── */
+
+    .input-area {
+      background: var(--white);
+      border-top: 1px solid var(--border);
+      padding: 12px 14px;
+      padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+      flex-shrink: 0;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+    }
+
+    #msg {
+      flex: 1;
+      padding: 11px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      font-size: 15px;
+      font-family: inherit;
+      direction: rtl;
+      resize: none;
+      outline: none;
+      min-height: 44px;
+      max-height: 130px;
+      line-height: 1.5;
+      background: var(--surface);
+      color: var(--text);
+      transition: border-color 0.2s, background 0.2s;
+    }
+    #msg:focus          { border-color: var(--accent); background: var(--white); }
+    #msg::placeholder   { color: var(--text-3); }
+
+    .send-btn {
+      width: 44px;
+      height: 44px;
+      min-width: 44px;
+      background: var(--accent);
+      color: var(--white);
+      border: none;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s, transform 0.1s, opacity 0.2s;
+    }
+    .send-btn:hover:not(:disabled)  { background: var(--accent-dark); }
+    .send-btn:active:not(:disabled) { transform: scale(0.93); }
+    .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+<!-- ─── API Key Setup ──────────────────────────────────────────────────────── -->
+<div class="overlay" id="overlay">
+  <div class="setup-card">
+    <div class="setup-icon">✍️</div>
+    <h2>Content Agent</h2>
+    <p>הכנס מפתח Anthropic API כדי להתחיל ליצור תוכן ויראלי ואותנטי</p>
+    <input
+      class="field"
+      type="password"
+      id="apiKeyInput"
+      placeholder="sk-ant-api03-..."
+      autocomplete="off"
+      onkeydown="if(event.key==='Enter') startApp()"
+    >
+    <button class="btn-start" onclick="startApp()">התחל ←</button>
+  </div>
+</div>
+
+<!-- ─── Header + Progress ─────────────────────────────────────────────────── -->
+<header class="header">
+  <div class="header-row">
+    <div>
+      <span class="app-name">✍️ Content Agent</span>
+      <span class="app-sub">עורך תוכן אישי</span>
+    </div>
+    <button class="btn-reset" onclick="resetChat()">התחל מחדש</button>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-track">
+      <div class="progress-fill" id="fill"></div>
+    </div>
+    <div class="progress-steps" id="steps"></div>
+  </div>
+</header>
+
+<!-- ─── Chat Area ─────────────────────────────────────────────────────────── -->
+<main class="chat" id="chat">
+  <div class="welcome-screen" id="welcome">
+    <div class="welcome-emoji">🚀</div>
+    <h2 class="welcome-title">בואו ניצור תוכן שמחבר</h2>
+    <p class="welcome-body">שתף אותי ברעיון גולמי — מחשבה, חוויה, תובנה — ואני אהפוך אותה לתוכן אינסטגרם ויראלי ואותנטי.</p>
+    <div class="welcome-hint">💡 דוגמה: "רציתי לכתוב על ההחלטה שלי לקום ב-5 בבוקר"</div>
+  </div>
+</main>
+
+<!-- ─── Input ─────────────────────────────────────────────────────────────── -->
+<div class="input-area">
+  <div class="input-row">
+    <textarea
+      id="msg"
+      rows="1"
+      placeholder="שתף רעיון גולמי..."
+      onkeydown="handleKey(event)"
+      oninput="onInput(this)"
+    ></textarea>
+    <button class="send-btn" id="sendBtn" onclick="send()" disabled>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="2.5"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 2L11 13M22 2L15 22L11 13L2 9L22 2Z"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<script>
+// ─── System prompt ────────────────────────────────────────────────────────────
+
+const SYSTEM = `אתה עורך תוכן ואסטרטג קריאייטיב אישי בעברית. המטרה: להפוך רעיונות גולמיים לתוכן ויראלי, אותנטי ומחבר רגשית לאינסטגרם.
+
+הקהל: גברים 25-35 שמרגישים תקועים. הנושאים: משמעת מנטלית, חופש פנימי, שינוי אמיתי.
+
+עקרונות:
+1. אותנטיות לפני הכל — אם משהו נשמע רובוטי, שיווקי או מאולץ, תגיד את זה ישר ותציע איך לומר את זה בצורה אנושית ופגיעה.
+2. הוק תמיד x3 — תציע תמיד 3 הוקים: אחד רגשי, אחד מבוסס סקרנות, אחד ישיר/חזק.
+3. חיבור רגשי — בכל תוכן תנתח מה הכאב או השאיפה של הקהל. אנחנו בונים חיבור, לא מוכרים תוכן.
+4. מינימליזם — משפטים קצרים. ה-Why לפני הכל. פרטים קטנים שעושים הבדל גדול.
+
+תהליך העבודה:
+שלב א׳ — אני מביא רעיון גולמי.
+שלב ב׳ — אתה שואל 2-3 שאלות עומק שמוציאות ממני את האמת: סיפור אישי, חוויה ספציפית, קושי אמיתי. שאלה אחת בכל פעם.
+שלב ג׳ — אתה מנסח מבנה: הוק → גוף → CTA. מציע 3 הוקים.
+שלב ד׳ — טיוטה ראשונה.
+שלב ה׳ — סבב ליטוש אחד. גרסה סופית עם כיתוב + טקסט למסך (לרילס) + 5 האשטאגים.
+
+בסוף כל גרסה סופית כתוב: [OUTPUT_READY] ואז את הטקסט המוכן לפרסום.
+תמיד תענה בשפה שבה אני פונה אליך.`;
+
+// ─── Stage definitions ────────────────────────────────────────────────────────
+
+const STAGES = [
+  { letter: 'א׳', label: 'רעיון גולמי'   },
+  { letter: 'ב׳', label: 'שאלות עומק'    },
+  { letter: 'ג׳', label: 'מבנה + הוקים'  },
+  { letter: 'ד׳', label: 'טיוטה ראשונה'  },
+  { letter: 'ה׳', label: 'גרסה סופית'    },
+];
+
+// ─── App state ────────────────────────────────────────────────────────────────
+
+let KEY     = localStorage.getItem('ca_key') || '';
+let history = [];   // [{role, content}]
+let stage   = 0;    // 0-4
+let busy    = false;
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+
+(function boot() {
+  renderProgress();
+  if (KEY) closeOverlay();
+  document.getElementById('msg').addEventListener('input', syncSendBtn);
+})();
+
+// ─── API key ──────────────────────────────────────────────────────────────────
+
+function startApp() {
+  const k = document.getElementById('apiKeyInput').value.trim();
+  const field = document.getElementById('apiKeyInput');
+  if (!k.startsWith('sk-')) {
+    field.classList.add('error');
+    field.focus();
+    return;
+  }
+  field.classList.remove('error');
+  KEY = k;
+  localStorage.setItem('ca_key', k);
+  closeOverlay();
+  document.getElementById('msg').focus();
+}
+
+function closeOverlay() {
+  document.getElementById('overlay').style.display = 'none';
+}
+
+// ─── Progress ─────────────────────────────────────────────────────────────────
+
+function renderProgress() {
+  document.getElementById('steps').innerHTML = STAGES.map((s, i) => {
+    const cls = i < stage ? 'done' : i === stage ? 'active' : '';
+    const lbl = i === stage ? 'active' : '';
+    const icon = i < stage ? '✓' : s.letter;
+    return `
+      <div class="p-step">
+        <div class="p-dot ${cls}">${icon}</div>
+        <div class="p-label ${lbl}">${s.label}</div>
+      </div>`;
+  }).join('');
+
+  // Fill track right-to-left: stage 0 = 0%, stage 4 = 100%
+  document.getElementById('fill').style.width = stage === 0 ? '0%' : `${(stage / 4) * 100}%`;
+}
+
+function advanceTo(s) {
+  if (s <= stage) return;
+  stage = Math.min(s, 4);
+  renderProgress();
+}
+
+// ─── Input helpers ────────────────────────────────────────────────────────────
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+}
+
+function onInput(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 130) + 'px';
+  syncSendBtn();
+}
+
+function syncSendBtn() {
+  document.getElementById('sendBtn').disabled =
+    !document.getElementById('msg').value.trim() || busy;
+}
+
+// ─── Welcome screen ───────────────────────────────────────────────────────────
+
+function removeWelcome() {
+  document.getElementById('welcome')?.remove();
+}
+
+// ─── Chat rendering ───────────────────────────────────────────────────────────
+
+function appendUserBubble(text) {
+  removeWelcome();
+  const row = document.createElement('div');
+  row.className = 'msg-row user';
+  row.innerHTML = `<div class="bubble"></div>`;
+  row.querySelector('.bubble').textContent = text;
+  document.getElementById('chat').appendChild(row);
+  scrollChat();
+}
+
+/**
+ * Creates an assistant message row and returns the bubble element for streaming.
+ * Optionally attaches a copy button if the message contains [OUTPUT_READY].
+ */
+function createAssistantRow() {
+  removeWelcome();
+  const row = document.createElement('div');
+  row.className = 'msg-row assistant';
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  row.appendChild(bubble);
+  document.getElementById('chat').appendChild(row);
+  return { row, bubble };
+}
+
+function attachCopyButton(row, outputText) {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn';
+  btn.innerHTML = '📋 העתק לפרסום';
+  btn.onclick = () => {
+    navigator.clipboard.writeText(outputText).then(() => {
+      btn.innerHTML = '✅ הועתק!';
+      btn.classList.add('done');
+      setTimeout(() => {
+        btn.innerHTML = '📋 העתק לפרסום';
+        btn.classList.remove('done');
+      }, 2500);
+    });
+  };
+  row.appendChild(btn);
+}
+
+// ─── Typing indicator ─────────────────────────────────────────────────────────
+
+function showTyping() {
+  removeWelcome();
+  const row = document.createElement('div');
+  row.className = 'typing-row';
+  row.id = 'typing';
+  row.innerHTML = `
+    <div class="typing-bubble">
+      <div class="t-dot"></div>
+      <div class="t-dot"></div>
+      <div class="t-dot"></div>
+    </div>`;
+  document.getElementById('chat').appendChild(row);
+  scrollChat();
+}
+
+function hideTyping() {
+  document.getElementById('typing')?.remove();
+}
+
+// ─── Stage detection from AI response ────────────────────────────────────────
+
+function inferStage(text, turnCount) {
+  if (text.includes('[OUTPUT_READY]')) return 4;
+
+  // Three hooks pattern: look for numbered hooks or "הוק" + distinct types
+  const hookMatches = [
+    /הוק.{0,10}רגש/,
+    /הוק.{0,10}סקרנות/,
+    /הוק.{0,10}ישיר/,
+    /1\..{0,5}הוק/,
+  ];
+  const hookHits = hookMatches.filter(r => r.test(text)).length;
+  if (hookHits >= 2) return 2;
+
+  // Long text with hooks = likely a draft
+  if (text.length > 700 && text.includes('הוק')) return 3;
+
+  // Short question-style response = depth-questions phase
+  if (text.includes('?') && text.length < 600 && turnCount <= 6) return 1;
+
+  return stage; // no change
+}
+
+// ─── Scroll ───────────────────────────────────────────────────────────────────
+
+function scrollChat() {
+  const chat = document.getElementById('chat');
+  chat.scrollTop = chat.scrollHeight;
+}
+
+// ─── Send ─────────────────────────────────────────────────────────────────────
+
+async function send() {
+  const input = document.getElementById('msg');
+  const text  = input.value.trim();
+  if (!text || busy) return;
+
+  busy = true;
+  input.value = '';
+  input.style.height = 'auto';
+  syncSendBtn();
+
+  appendUserBubble(text);
+  history.push({ role: 'user', content: text });
+
+  // First user message → enter depth-questions phase
+  if (history.length === 1) advanceTo(1);
+
+  showTyping();
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:  'POST',
+      headers: {
+        'x-api-key':                              KEY,
+        'anthropic-version':                      '2023-06-01',
+        'content-type':                           'application/json',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model:      'claude-sonnet-4-20250514',
+        max_tokens: 2048,
+        stream:     true,
+        system:     SYSTEM,
+        messages:   history,
+      }),
+    });
+
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error?.message || `HTTP ${res.status}`);
+    }
+
+    hideTyping();
+    const { row, bubble } = createAssistantRow();
+
+    let full = '';
+    const reader = res.body.getReader();
+    const dec    = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      for (const line of dec.decode(value).split('\n')) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (raw === '[DONE]') continue;
+        try {
+          const evt = JSON.parse(raw);
+          if (evt.type === 'content_block_delta' && evt.delta?.text) {
+            full += evt.delta.text;
+            // Hide the marker from the visible text while streaming
+            bubble.textContent = full.replace('[OUTPUT_READY]', '').trimEnd();
+            scrollChat();
+          }
+        } catch { /* malformed SSE chunk — skip */ }
+      }
+    }
+
+    history.push({ role: 'assistant', content: full });
+
+    if (full.includes('[OUTPUT_READY]')) {
+      const outputText = full.split('[OUTPUT_READY]')[1].trim();
+      bubble.textContent = full.replace('[OUTPUT_READY]', '').trim();
+      attachCopyButton(row, outputText);
+      advanceTo(4);
+    } else {
+      advanceTo(inferStage(full, history.length));
+    }
+
+  } catch (err) {
+    hideTyping();
+    const { bubble } = createAssistantRow();
+    bubble.classList.add('error');
+    bubble.textContent = `שגיאה: ${err.message}`;
+  }
+
+  busy = false;
+  syncSendBtn();
+  document.getElementById('msg').focus();
+}
+
+// ─── Reset ────────────────────────────────────────────────────────────────────
+
+function resetChat() {
+  if (history.length > 0 && !confirm('להתחיל שיחה חדשה? ההיסטוריה תימחק.')) return;
+  history = [];
+  stage   = 0;
+  busy    = false;
+  renderProgress();
+  document.getElementById('chat').innerHTML = `
+    <div class="welcome-screen" id="welcome">
+      <div class="welcome-emoji">🚀</div>
+      <h2 class="welcome-title">בואו ניצור תוכן שמחבר</h2>
+      <p class="welcome-body">שתף אותי ברעיון גולמי — מחשבה, חוויה, תובנה — ואני אהפוך אותה לתוכן אינסטגרם ויראלי ואותנטי.</p>
+      <div class="welcome-hint">💡 דוגמה: "רציתי לכתוב על ההחלטה שלי לקום ב-5 בבוקר"</div>
+    </div>`;
+  document.getElementById('msg').focus();
+}
+</script>
+</body>
+</html>
