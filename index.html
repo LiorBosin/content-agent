@@ -426,6 +426,157 @@
     .send-btn:hover:not(:disabled)  { background: var(--accent-dark); }
     .send-btn:active:not(:disabled) { transform: scale(0.93); }
     .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* ─── History Panel ──────────────────────────────────────────────────── */
+
+    .btn-history {
+      font-size: 12px;
+      color: var(--text-2);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 5px 10px;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 500;
+      transition: color 0.15s, border-color 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .btn-history:hover { color: var(--accent); border-color: var(--accent); }
+
+    .history-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(17, 24, 39, 0.4);
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+    .history-backdrop.open { opacity: 1; pointer-events: all; }
+
+    .history-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(300px, 90vw);
+      background: var(--white);
+      z-index: 250;
+      display: flex;
+      flex-direction: column;
+      box-shadow: -6px 0 24px rgba(0,0,0,0.12);
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .history-panel.open { transform: translateX(0); }
+
+    .history-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .history-panel-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .btn-close-panel {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      border: none;
+      background: var(--surface);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-2);
+      font-size: 16px;
+      transition: background 0.15s;
+    }
+    .btn-close-panel:hover { background: var(--border); }
+
+    .btn-new-conv {
+      margin: 12px;
+      padding: 11px 14px;
+      background: var(--accent);
+      color: var(--white);
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      transition: background 0.15s, transform 0.1s;
+      flex-shrink: 0;
+    }
+    .btn-new-conv:hover  { background: var(--accent-dark); }
+    .btn-new-conv:active { transform: scale(0.98); }
+
+    .history-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 8px 16px;
+    }
+    .history-list::-webkit-scrollbar { width: 4px; }
+    .history-list::-webkit-scrollbar-track { background: transparent; }
+    .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .history-section-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-3);
+      padding: 10px 8px 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .history-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.15s;
+      border: 1px solid transparent;
+    }
+    .history-item:hover { background: var(--surface); }
+    .history-item.active {
+      background: var(--accent-soft);
+      border-color: var(--accent-mid);
+    }
+    .history-item-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-item.active .history-item-title { color: var(--accent); }
+    .history-item-date {
+      font-size: 11px;
+      color: var(--text-3);
+    }
+
+    .history-empty {
+      padding: 32px 16px;
+      text-align: center;
+      color: var(--text-3);
+      font-size: 13px;
+      line-height: 1.6;
+    }
   </style>
 </head>
 <body>
@@ -451,11 +602,17 @@
 <!-- ─── Header + Progress ─────────────────────────────────────────────────── -->
 <header class="header">
   <div class="header-row">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button class="btn-history" onclick="openHistoryPanel()" title="היסטוריית שיחות">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        היסטוריה
+      </button>
+    </div>
     <div>
       <span class="app-name">✍️ Content Agent</span>
       <span class="app-sub">עורך תוכן אישי</span>
     </div>
-    <button class="btn-reset" onclick="resetChat()">התחל מחדש</button>
+    <button class="btn-reset" onclick="startNewConversation()">+ שיחה חדשה</button>
   </div>
 
   <div class="progress-wrap">
@@ -496,6 +653,20 @@
   </div>
 </div>
 
+<!-- ─── History Panel ────────────────────────────────────────────────────────── -->
+<div class="history-backdrop" id="historyBackdrop" onclick="closeHistoryPanel()"></div>
+<div class="history-panel" id="historyPanel">
+  <div class="history-panel-header">
+    <span class="history-panel-title">היסטוריית שיחות</span>
+    <button class="btn-close-panel" onclick="closeHistoryPanel()">✕</button>
+  </div>
+  <button class="btn-new-conv" onclick="startNewConversation()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    שיחה חדשה
+  </button>
+  <div class="history-list" id="historyList"></div>
+</div>
+
 <script>
 // ─── System prompt ────────────────────────────────────────────────────────────
 
@@ -531,10 +702,148 @@ const STAGES = [
 
 // ─── App state ────────────────────────────────────────────────────────────────
 
-let KEY     = localStorage.getItem('ca_key') || '';
-let history = [];   // [{role, content}]
-let stage   = 0;    // 0-4
-let busy    = false;
+let KEY           = localStorage.getItem('ca_key') || '';
+let history       = [];   // [{role, content}]
+let stage         = 0;    // 0-4
+let busy          = false;
+let currentConvId = null;
+
+// ─── Conversation persistence ─────────────────────────────────────────────────
+
+function getConversations() {
+  try { return JSON.parse(localStorage.getItem('ca_conversations') || '[]'); }
+  catch { return []; }
+}
+
+function saveCurrentConversation() {
+  if (history.length === 0) return;
+  const convs = getConversations();
+  const firstUser = history.find(m => m.role === 'user')?.content || '';
+  const title = firstUser.length > 40 ? firstUser.slice(0, 40) + '…' : firstUser;
+  const now = Date.now();
+
+  if (currentConvId) {
+    const idx = convs.findIndex(c => c.id === currentConvId);
+    if (idx !== -1) {
+      convs[idx] = { ...convs[idx], title, history: [...history], stage, updatedAt: now };
+    } else {
+      convs.unshift({ id: currentConvId, title, createdAt: now, updatedAt: now, history: [...history], stage });
+    }
+  } else {
+    currentConvId = String(now);
+    convs.unshift({ id: currentConvId, title, createdAt: now, updatedAt: now, history: [...history], stage });
+  }
+  localStorage.setItem('ca_conversations', JSON.stringify(convs.slice(0, 50)));
+}
+
+function formatConvDate(ts) {
+  const d   = new Date(ts);
+  const now = new Date();
+  const sameDay = now.toDateString() === d.toDateString();
+  if (sameDay)
+    return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+  const diffDays = Math.floor((now - d) / 86400000);
+  if (diffDays < 7)
+    return d.toLocaleDateString('he-IL', { weekday: 'long' });
+  return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit' });
+}
+
+function renderHistoryList() {
+  const list = document.getElementById('historyList');
+  const convs = getConversations();
+  if (convs.length === 0) {
+    list.innerHTML = '<div class="history-empty">עדיין אין שיחות שמורות.<br>התחל שיחה ראשונה!</div>';
+    return;
+  }
+  list.innerHTML = convs.map(c => `
+    <div class="history-item ${c.id === currentConvId ? 'active' : ''}"
+         onclick="loadConversationById('${c.id}')">
+      <div class="history-item-title">${escapeHtml(c.title || 'שיחה')}</div>
+      <div class="history-item-date">${formatConvDate(c.updatedAt || c.createdAt)}</div>
+    </div>`).join('');
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function openHistoryPanel() {
+  renderHistoryList();
+  document.getElementById('historyPanel').classList.add('open');
+  document.getElementById('historyBackdrop').classList.add('open');
+}
+
+function closeHistoryPanel() {
+  document.getElementById('historyPanel').classList.remove('open');
+  document.getElementById('historyBackdrop').classList.remove('open');
+}
+
+function loadConversationById(id) {
+  saveCurrentConversation();
+  const convs = getConversations();
+  const conv  = convs.find(c => c.id === id);
+  if (!conv) return;
+
+  currentConvId = conv.id;
+  history       = [...conv.history];
+  stage         = conv.stage || 0;
+  busy          = false;
+
+  renderProgress();
+  renderLoadedHistory();
+  closeHistoryPanel();
+  document.getElementById('msg').focus();
+}
+
+function renderLoadedHistory() {
+  const chat = document.getElementById('chat');
+  chat.innerHTML = '';
+  for (const msg of history) {
+    if (msg.role === 'user') {
+      const row = document.createElement('div');
+      row.className = 'msg-row user';
+      row.innerHTML = '<div class="bubble"></div>';
+      row.querySelector('.bubble').textContent = msg.content;
+      chat.appendChild(row);
+    } else {
+      const row    = document.createElement('div');
+      row.className = 'msg-row assistant';
+      const bubble = document.createElement('div');
+      bubble.className = 'bubble';
+      if (msg.content.includes('[OUTPUT_READY]')) {
+        bubble.textContent = msg.content.replace('[OUTPUT_READY]', '').trim();
+        row.appendChild(bubble);
+        chat.appendChild(row);
+        attachCopyButton(row, msg.content.split('[OUTPUT_READY]')[1].trim());
+      } else {
+        bubble.textContent = msg.content;
+        row.appendChild(bubble);
+        chat.appendChild(row);
+      }
+    }
+  }
+  scrollChat();
+}
+
+// ─── New / Reset conversation ─────────────────────────────────────────────────
+
+function startNewConversation() {
+  saveCurrentConversation();
+  currentConvId = null;
+  history       = [];
+  stage         = 0;
+  busy          = false;
+  renderProgress();
+  document.getElementById('chat').innerHTML = `
+    <div class="welcome-screen" id="welcome">
+      <div class="welcome-emoji">🚀</div>
+      <h2 class="welcome-title">בואו ניצור תוכן שמחבר</h2>
+      <p class="welcome-body">שתף אותי ברעיון גולמי — מחשבה, חוויה, תובנה — ואני אהפוך אותה לתוכן אינסטגרם ויראלי ואותנטי.</p>
+      <div class="welcome-hint">💡 דוגמה: "רציתי לכתוב על ההחלטה שלי לקום ב-5 בבוקר"</div>
+    </div>`;
+  closeHistoryPanel();
+  document.getElementById('msg').focus();
+}
 
 // ─── Boot ─────────────────────────────────────────────────────────────────────
 
@@ -723,8 +1032,11 @@ async function send() {
   appendUserBubble(text);
   history.push({ role: 'user', content: text });
 
-  // First user message → enter depth-questions phase
-  if (history.length === 1) advanceTo(1);
+  // First user message → assign conversation ID + enter depth-questions phase
+  if (history.length === 1) {
+    currentConvId = String(Date.now());
+    advanceTo(1);
+  }
 
   showTyping();
 
@@ -789,6 +1101,8 @@ async function send() {
       advanceTo(inferStage(full, history.length));
     }
 
+    saveCurrentConversation();
+
   } catch (err) {
     hideTyping();
     const { bubble } = createAssistantRow();
@@ -801,23 +1115,6 @@ async function send() {
   document.getElementById('msg').focus();
 }
 
-// ─── Reset ────────────────────────────────────────────────────────────────────
-
-function resetChat() {
-  if (history.length > 0 && !confirm('להתחיל שיחה חדשה? ההיסטוריה תימחק.')) return;
-  history = [];
-  stage   = 0;
-  busy    = false;
-  renderProgress();
-  document.getElementById('chat').innerHTML = `
-    <div class="welcome-screen" id="welcome">
-      <div class="welcome-emoji">🚀</div>
-      <h2 class="welcome-title">בואו ניצור תוכן שמחבר</h2>
-      <p class="welcome-body">שתף אותי ברעיון גולמי — מחשבה, חוויה, תובנה — ואני אהפוך אותה לתוכן אינסטגרם ויראלי ואותנטי.</p>
-      <div class="welcome-hint">💡 דוגמה: "רציתי לכתוב על ההחלטה שלי לקום ב-5 בבוקר"</div>
-    </div>`;
-  document.getElementById('msg').focus();
-}
 </script>
 </body>
 </html>
