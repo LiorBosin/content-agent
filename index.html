@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Content Agent ✍️</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -700,6 +701,12 @@ const STAGES = [
   { letter: 'ה׳', label: 'גרסה סופית'    },
 ];
 
+// ─── Supabase ─────────────────────────────────────────────────────────────────
+
+const SB_URL = 'https://gjdpkhhzsbyhinzukfgq.supabase.co';
+const SB_KEY = 'sb_publishable_psg3eUqgy01RMxTCNlzonw_r8fBz2lO';
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
 // ─── App state ────────────────────────────────────────────────────────────────
 
 let KEY           = localStorage.getItem('ca_key') || '';
@@ -710,34 +717,39 @@ let currentConvId = null;
 
 // ─── Conversation persistence ─────────────────────────────────────────────────
 
-function getConversations() {
-  try { return JSON.parse(localStorage.getItem('ca_conversations') || '[]'); }
-  catch { return []; }
-}
-
-function saveCurrentConversation() {
+async function saveCurrentConversation() {
   if (history.length === 0) return;
-  const convs = getConversations();
   const firstUser = history.find(m => m.role === 'user')?.content || '';
   const title = firstUser.length > 40 ? firstUser.slice(0, 40) + '…' : firstUser;
-  const now = Date.now();
+  const now = new Date().toISOString();
 
   if (currentConvId) {
-    const idx = convs.findIndex(c => c.id === currentConvId);
-    if (idx !== -1) {
-      convs[idx] = { ...convs[idx], title, history: [...history], stage, updatedAt: now };
-    } else {
-      convs.unshift({ id: currentConvId, title, createdAt: now, updatedAt: now, history: [...history], stage });
-    }
+    await sb.from('conversations').upsert({
+      id: currentConvId,
+      title,
+      messages: history,
+      stage,
+      updated_at: now,
+    });
   } else {
-    currentConvId = String(now);
-    convs.unshift({ id: currentConvId, title, createdAt: now, updatedAt: now, history: [...history], stage });
+    const { data } = await sb.from('conversations')
+      .insert({ title, messages: history, stage, updated_at: now })
+      .select('id')
+      .single();
+    if (data) currentConvId = data.id;
   }
-  localStorage.setItem('ca_conversations', JSON.stringify(convs.slice(0, 50)));
 }
 
-function formatConvDate(ts) {
-  const d   = new Date(ts);
+async function fetchConversations() {
+  const { data } = await sb.from('conversations')
+    .select('id, title, stage, updated_at')
+    .order('updated_at', { ascending: false })
+    .limit(50);
+  return data || [];
+}
+
+function formatConvDate(iso) {
+  const d   = new Date(iso);
   const now = new Date();
   const sameDay = now.toDateString() === d.toDateString();
   if (sameDay)
@@ -748,9 +760,10 @@ function formatConvDate(ts) {
   return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', year: '2-digit' });
 }
 
-function renderHistoryList() {
+async function renderHistoryList() {
   const list = document.getElementById('historyList');
-  const convs = getConversations();
+  list.innerHTML = '<div class="history-empty">טוען...</div>';
+  const convs = await fetchConversations();
   if (convs.length === 0) {
     list.innerHTML = '<div class="history-empty">עדיין אין שיחות שמורות.<br>התחל שיחה ראשונה!</div>';
     return;
@@ -759,7 +772,7 @@ function renderHistoryList() {
     <div class="history-item ${c.id === currentConvId ? 'active' : ''}"
          onclick="loadConversationById('${c.id}')">
       <div class="history-item-title">${escapeHtml(c.title || 'שיחה')}</div>
-      <div class="history-item-date">${formatConvDate(c.updatedAt || c.createdAt)}</div>
+      <div class="history-item-date">${formatConvDate(c.updated_at)}</div>
     </div>`).join('');
 }
 
@@ -767,10 +780,10 @@ function escapeHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function openHistoryPanel() {
-  renderHistoryList();
+async function openHistoryPanel() {
   document.getElementById('historyPanel').classList.add('open');
   document.getElementById('historyBackdrop').classList.add('open');
+  await renderHistoryList();
 }
 
 function closeHistoryPanel() {
@@ -778,14 +791,16 @@ function closeHistoryPanel() {
   document.getElementById('historyBackdrop').classList.remove('open');
 }
 
-function loadConversationById(id) {
-  saveCurrentConversation();
-  const convs = getConversations();
-  const conv  = convs.find(c => c.id === id);
+async function loadConversationById(id) {
+  await saveCurrentConversation();
+  const { data: conv } = await sb.from('conversations')
+    .select('id, messages, stage')
+    .eq('id', id)
+    .single();
   if (!conv) return;
 
   currentConvId = conv.id;
-  history       = [...conv.history];
+  history       = conv.messages || [];
   stage         = conv.stage || 0;
   busy          = false;
 
@@ -827,8 +842,8 @@ function renderLoadedHistory() {
 
 // ─── New / Reset conversation ─────────────────────────────────────────────────
 
-function startNewConversation() {
-  saveCurrentConversation();
+async function startNewConversation() {
+  await saveCurrentConversation();
   currentConvId = null;
   history       = [];
   stage         = 0;
@@ -933,10 +948,6 @@ function appendUserBubble(text) {
   scrollChat();
 }
 
-/**
- * Creates an assistant message row and returns the bubble element for streaming.
- * Optionally attaches a copy button if the message contains [OUTPUT_READY].
- */
 function createAssistantRow() {
   removeWelcome();
   const row = document.createElement('div');
@@ -991,7 +1002,6 @@ function hideTyping() {
 function inferStage(text, turnCount) {
   if (text.includes('[OUTPUT_READY]')) return 4;
 
-  // Three hooks pattern: look for numbered hooks or "הוק" + distinct types
   const hookMatches = [
     /הוק.{0,10}רגש/,
     /הוק.{0,10}סקרנות/,
@@ -1001,13 +1011,11 @@ function inferStage(text, turnCount) {
   const hookHits = hookMatches.filter(r => r.test(text)).length;
   if (hookHits >= 2) return 2;
 
-  // Long text with hooks = likely a draft
   if (text.length > 700 && text.includes('הוק')) return 3;
 
-  // Short question-style response = depth-questions phase
   if (text.includes('?') && text.length < 600 && turnCount <= 6) return 1;
 
-  return stage; // no change
+  return stage;
 }
 
 // ─── Scroll ───────────────────────────────────────────────────────────────────
@@ -1032,9 +1040,9 @@ async function send() {
   appendUserBubble(text);
   history.push({ role: 'user', content: text });
 
-  // First user message → assign conversation ID + enter depth-questions phase
+  // First user message → create conversation in Supabase + enter depth-questions phase
   if (history.length === 1) {
-    currentConvId = String(Date.now());
+    await saveCurrentConversation();
     advanceTo(1);
   }
 
@@ -1082,7 +1090,6 @@ async function send() {
           const evt = JSON.parse(raw);
           if (evt.type === 'content_block_delta' && evt.delta?.text) {
             full += evt.delta.text;
-            // Hide the marker from the visible text while streaming
             bubble.textContent = full.replace('[OUTPUT_READY]', '').trimEnd();
             scrollChat();
           }
@@ -1101,7 +1108,7 @@ async function send() {
       advanceTo(inferStage(full, history.length));
     }
 
-    saveCurrentConversation();
+    await saveCurrentConversation();
 
   } catch (err) {
     hideTyping();
